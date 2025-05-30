@@ -1,18 +1,23 @@
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
+import speech_recognition as sr
+from gtts import gTTS
+import os
+import uuid
+from playsound import playsound
 
-# Load the dataset
+# Load dataset
 @st.cache_data
 def load_data():
     return pd.read_csv("data.csv")
 
 df = load_data()
 
-# OpenAI client (API key from Streamlit secrets)
+# OpenAI client
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Generate pandas code from user question
+# Generate pandas code from GPT
 def generate_pandas_code(question):
     prompt = f"""
 You are a data analyst. Given this DataFrame `df` with columns:
@@ -25,13 +30,11 @@ Write a valid Python pandas code using df to answer this question.
 
 Rules:
 - Use `subject_marks` for subject-specific stats.
-- Use `average_score` for student-level averages.
-- Use `student_id`.nunique() to count distinct students.
-- Normalize string filters using .str.upper().str.strip()
-  Example: df['grade'].str.upper().str.strip() == 'GRADE 10'
-- Always assign final output to a DataFrame named `result`.
-- If query returns no data, use result = pd.DataFrame() to prevent errors.
-- Do not print or explain. Only return Python code.
+- Use `average_score` for overall student stats.
+- Count students using df['student_id'].nunique().
+- Normalize string filters with .str.upper().str.strip().
+- Assign output to a variable `result`.
+- If nothing is returned, assign result = pd.DataFrame().
 """
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -39,32 +42,56 @@ Rules:
     )
     return response.choices[0].message.content.strip()
 
-# Summarize result using GPT
+# Generate 1-line summary using GPT
 def summarize_result(question, data):
     prompt = f"""User asked: {question}
 Data:
 {data.to_string(index=False)}
 
-Provide a short, clear 1-line summary of the result."""
-    
+Give a short, 1-line summary of the insight."""
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content.strip()
 
+# Convert text to speech using gTTS
+def speak_text(text):
+    filename = f"temp_{uuid.uuid4()}.mp3"
+    tts = gTTS(text)
+    tts.save(filename)
+    playsound(filename)
+    os.remove(filename)
+
 # Streamlit UI
-st.title("📊 CBSE Copilot — Ask Your Data Anything")
-question = st.text_input("💬 Ask a question about CBSE results:")
+st.title("🎙️ CBSE Copilot with Voice")
+
+# Voice input
+st.subheader("🎤 Speak your question (or type below):")
+use_voice = st.button("Start Voice Input")
+
+question = st.text_input("Or type your question:")
+
+if use_voice:
+    st.info("🎧 Listening... please speak clearly.")
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        audio = r.listen(source)
+    try:
+        question = r.recognize_google(audio)
+        st.success(f"You said: {question}")
+    except Exception as e:
+        st.error(f"Voice input error: {e}")
+        question = ""
 
 if question:
     with st.spinner("🤖 Thinking..."):
         try:
             code = generate_pandas_code(question)
-            st.subheader("📄 Generated Code")
+            st.subheader("🧠 Generated Code")
             st.code(code, language="python")
 
-            # Execute safely
+            # Execute generated code
             local_vars = {}
             exec(code, {"df": df, "pd": pd}, local_vars)
             result = local_vars.get("result")
@@ -78,25 +105,14 @@ if question:
             st.subheader("📊 Result")
             st.dataframe(result)
 
-            # GPT-generated result worked
+            # Voice + Text insight
             if result is not None and not result.empty:
                 insight = summarize_result(question, result)
                 st.success("💬 Insight: " + insight)
-
-            # GPT failed — fallback for specific question
-            elif "students appeared" in question.lower() and "2024-2025" in question and "grade 12" in question.lower():
-                st.info("🧠 Using fallback logic for student count (Grade 12, 2024-2025).")
-                filtered = df[
-                    (df['academic_year'].str.upper().str.strip() == '2024-2025') &
-                    (df['grade'].str.upper().str.strip() == 'GRADE 12')
-                ]
-                student_count = filtered['student_id'].nunique()
-                result = pd.DataFrame({"students_appeared": [student_count]})
-                st.dataframe(result)
-                st.success(f"👩‍🎓 {student_count} students appeared for Grade 12 in 2024-2025.")
-
+                speak_text(insight)
             else:
-                st.warning("⚠️ The query ran but returned no results.")
+                st.warning("⚠️ No result found.")
+                speak_text("No result was found for your question.")
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
