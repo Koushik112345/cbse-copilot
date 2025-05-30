@@ -1,6 +1,6 @@
 streamlit
 openai
 pandas
-streamlit-webrtc
 gtts
 playsound==1.2.2
+streamlit-webrtc
