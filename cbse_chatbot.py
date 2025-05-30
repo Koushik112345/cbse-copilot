@@ -9,10 +9,10 @@ def load_data():
 
 df = load_data()
 
-# OpenAI client (using API key from Streamlit Secrets)
+# OpenAI client using Streamlit secret key
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Generate pandas code from user's question
+# Generate pandas code from question
 def generate_pandas_code(question):
     prompt = f"""
 You are a data analyst. Given this DataFrame `df` with columns:
@@ -23,29 +23,27 @@ User question: {question}
 
 Write a valid Python pandas code using df to answer this question.
 Always return the result as a DataFrame using pd.DataFrame(...) — even if it's a single value.
-Only return code, no explanations.
+Do not print or explain anything. Only return Python code.
 """
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-
     return response.choices[0].message.content.strip()
 
-# Summarize the result in plain language
+# Summarize the result using GPT
 def summarize_result(question, data):
     prompt = f"""User asked: {question}
 Data:
 {data.to_string(index=False)}
 
-Provide a 1-line summary of the result in simple language."""
+Provide a short, clear 1-line summary of the result."""
     
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    
     return response.choices[0].message.content.strip()
 
 # Streamlit UI
@@ -59,8 +57,12 @@ if question:
             st.subheader("📄 Generated Code")
             st.code(code, language="python")
 
-            # Evaluate the code to get the result
+            # Execute the code safely
             result = eval(code)
+
+            # Auto-wrap non-DataFrame results
+            if not isinstance(result, pd.DataFrame):
+                result = pd.DataFrame({"Result": [result]})
 
             st.subheader("📊 Result")
             st.dataframe(result)
