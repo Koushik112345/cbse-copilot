@@ -12,7 +12,7 @@ df = load_data()
 # OpenAI client (API key from Streamlit secrets)
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Function to generate Python code from user question
+# Generate pandas code from user question
 def generate_pandas_code(question):
     prompt = f"""
 You are a data analyst. Given this DataFrame `df` with columns:
@@ -24,8 +24,10 @@ User question: {question}
 Write a valid Python pandas code using df to answer this question.
 - Always assign the final result to a variable named result.
 - The result must be a pandas DataFrame (pd.DataFrame).
-- If the query results in no matching data, assign result = pd.DataFrame() to avoid errors.
-Do not print or explain anything. Only return Python code.
+- Normalize string columns before comparison by applying .str.upper().str.strip()
+  Example: df['grade'].str.upper().str.strip() == 'GRADE 10'
+- If no matching data is found, assign result = pd.DataFrame() to avoid errors.
+- Do not print or explain anything. Only return Python code.
 """
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -33,7 +35,7 @@ Do not print or explain anything. Only return Python code.
     )
     return response.choices[0].message.content.strip()
 
-# Function to summarize results using GPT
+# Summarize result using GPT
 def summarize_result(question, data):
     prompt = f"""User asked: {question}
 Data:
@@ -58,7 +60,7 @@ if question:
             st.subheader("📄 Generated Code")
             st.code(code, language="python")
 
-            # Execute the generated code safely
+            # Execute code with safety
             local_vars = {}
             exec(code, {"df": df, "pd": pd}, local_vars)
 
