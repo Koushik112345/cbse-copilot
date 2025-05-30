@@ -1,18 +1,18 @@
 import streamlit as st
-import openai
 import pandas as pd
+from openai import OpenAI
 
-# Load CSV data
+# Load data
 @st.cache_data
 def load_data():
     return pd.read_csv("data.csv")
 
 df = load_data()
 
-# OpenAI API Key from Streamlit secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# Setup OpenAI client
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Generate pandas query using GPT
+# Generate pandas code from question
 def generate_pandas_code(question):
     prompt = f"""
 You are a data analyst. Given this DataFrame `df` with columns:
@@ -23,27 +23,27 @@ User question: {question}
 
 Write a valid pandas code using df to answer this. Only return the code, no explanation.
 """
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response['choices'][0]['message']['content'].strip()
+    return response.choices[0].message.content.strip()
 
-# Summarize result
+# Summarize the result
 def summarize_result(question, data):
     prompt = f"""User asked: {question}
 Data:
 {data.to_string(index=False)}
 
 Give a 1-line summary of the result."""
-    
-    response = openai.ChatCompletion.create(
+
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response['choices'][0]['message']['content'].strip()
+    return response.choices[0].message.content.strip()
 
-# UI
+# Streamlit UI
 st.title("📊 CBSE Copilot (GPT + Streamlit)")
 question = st.text_input("Ask a question about CBSE data:")
 
@@ -51,8 +51,13 @@ if question:
     with st.spinner("Generating response..."):
         try:
             code = generate_pandas_code(question)
+            st.subheader("📄 Generated Code")
             st.code(code, language="python")
+
+            # Execute generated code safely
             result = eval(code)
+
+            st.subheader("📊 Result")
             st.dataframe(result)
 
             if not result.empty:
