@@ -22,7 +22,8 @@ subject_marks, teacher_name, subject_grade, total_marks, average_score, result_s
 User question: {question}
 
 Write a valid Python pandas code using df to answer this question.
-Always return the result as a DataFrame using pd.DataFrame(...) — even if it's a single value.
+Always assign the final result to a variable named result.
+The result must be a pandas DataFrame (pd.DataFrame).
 Do not print or explain anything. Only return Python code.
 """
 
@@ -57,10 +58,16 @@ if question:
             st.subheader("📄 Generated Code")
             st.code(code, language="python")
 
-            # Execute the code safely
-            result = eval(code)
+            # Use exec to run multi-line GPT code
+            local_vars = {}
+            exec(code, {"df": df, "pd": pd}, local_vars)
 
-            # Auto-wrap non-DataFrame results
+            result = local_vars.get("result")
+
+            if result is None:
+                result = next(reversed(local_vars.values()))
+
+            # Ensure result is a DataFrame
             if not isinstance(result, pd.DataFrame):
                 result = pd.DataFrame({"Result": [result]})
 
