@@ -26,9 +26,10 @@ Write a valid Python pandas code using df to answer this question.
 Rules:
 - Use `subject_marks` for subject-specific stats.
 - Use `average_score` for student-level averages.
-- Normalize all string columns before filtering using .str.upper().str.strip()
+- Use `student_id`.nunique() to count distinct students.
+- Normalize string filters using .str.upper().str.strip()
   Example: df['grade'].str.upper().str.strip() == 'GRADE 10'
-- Always assign final output to a DataFrame named result.
+- Always assign final output to a DataFrame named `result`.
 - If query returns no data, use result = pd.DataFrame() to prevent errors.
 - Do not print or explain. Only return Python code.
 """
@@ -59,7 +60,6 @@ question = st.text_input("💬 Ask a question about CBSE results:")
 if question:
     with st.spinner("🤖 Thinking..."):
         try:
-            # Generate code from GPT
             code = generate_pandas_code(question)
             st.subheader("📄 Generated Code")
             st.code(code, language="python")
@@ -78,24 +78,23 @@ if question:
             st.subheader("📊 Result")
             st.dataframe(result)
 
-            # Fallback if result is empty
+            # GPT-generated result worked
             if result is not None and not result.empty:
                 insight = summarize_result(question, result)
                 st.success("💬 Insight: " + insight)
-            elif "school-wise overall average of 2024-2025 in order for grade 10" in question.lower():
-                st.info("🧠 Using fallback logic since no GPT result was found.")
-                fallback = df[
+
+            # GPT failed — fallback for specific question
+            elif "students appeared" in question.lower() and "2024-2025" in question and "grade 12" in question.lower():
+                st.info("🧠 Using fallback logic for student count (Grade 12, 2024-2025).")
+                filtered = df[
                     (df['academic_year'].str.upper().str.strip() == '2024-2025') &
-                    (df['grade'].str.upper().str.strip() == 'GRADE 10')
+                    (df['grade'].str.upper().str.strip() == 'GRADE 12')
                 ]
-                result = (
-                    fallback.groupby('school_code')['average_score']
-                    .mean()
-                    .reset_index()
-                    .sort_values(by='average_score', ascending=False)
-                )
+                student_count = filtered['student_id'].nunique()
+                result = pd.DataFrame({"students_appeared": [student_count]})
                 st.dataframe(result)
-                st.success("💬 Insight: School-wise averages for Grade 10 in 2024-2025 shown.")
+                st.success(f"👩‍🎓 {student_count} students appeared for Grade 12 in 2024-2025.")
+
             else:
                 st.warning("⚠️ The query ran but returned no results.")
 
