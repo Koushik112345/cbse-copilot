@@ -22,11 +22,14 @@ subject_marks, teacher_name, subject_grade, total_marks, average_score, result_s
 User question: {question}
 
 Write a valid Python pandas code using df to answer this question.
-- Always assign the final result to a variable named result.
-- The result must be a pandas DataFrame (pd.DataFrame).
-- Normalize string columns before comparison by applying .str.upper().str.strip()
-  Example: df['grade'].str.upper().str.strip() == 'GRADE 10'
-- If no matching data is found, assign result = pd.DataFrame() to avoid errors.
+
+Rules:
+- Use `subject_marks` when calculating statistics for individual subjects (e.g., "average in Mathematics").
+- Use `average_score` only when referring to overall student performance.
+- Normalize all string column filters by applying .str.upper().str.strip().
+  Example: df['subject_name'].str.upper().str.strip() == 'MATHEMATICS'
+- Always assign the final result to a variable named `result`.
+- If the result is empty, assign result = pd.DataFrame() to avoid errors.
 - Do not print or explain anything. Only return Python code.
 """
     response = client.chat.completions.create(
@@ -60,7 +63,7 @@ if question:
             st.subheader("📄 Generated Code")
             st.code(code, language="python")
 
-            # Execute code with safety
+            # Execute the generated code safely
             local_vars = {}
             exec(code, {"df": df, "pd": pd}, local_vars)
 
