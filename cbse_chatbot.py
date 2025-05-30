@@ -25,7 +25,7 @@ if os.path.exists(DATA_PATH):
     knowledge_df = knowledge_df.applymap(lambda x: x.lower() if isinstance(x, str) else x)
 
 # Initialize OpenAI API (make sure to set your API key in an environment variable or st.secrets)
-openai.api_key = st.secrets("OPENAI_API_KEY", "")  # or st.secrets["OPENAI_API_KEY"]
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Session state for audio buffer
 if "audio_bytes" not in st.session_state:
